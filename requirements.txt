@@ -1,0 +1,6 @@
+streamlit
+quantstats
+pandas
+numpy
+plotly==5.7.0
+azureml-defaults
