@@ -2,6 +2,7 @@
 *.html
 .streamlit/*.toml
 *.toml
+model.pkl
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

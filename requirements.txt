@@ -1,6 +1,7 @@
-streamlit
-quantstats
-pandas
-numpy
+streamlit==1.8.1
+QuantStats==0.0.50
+pandas==1.4.2
+numpy==1.21.6
 plotly==5.7.0
-azureml-defaults
+azureml-defaults==1.40.0
+scikit-learn==1.0.2
