@@ -63,10 +63,18 @@ st.title('AI Stock Picker')
 # -> Benchmark Report (SPY vs. MSCI)
 # -> sector/industry split
 model_meta = {}
+model_version = {}
 for model in Model.list(ws):
     # if model name starts with "AIInvestor-"
     if model.name.startswith('AIInvestor-'):
-        model_meta[model.name] = model.properties
+        # ensure metadata of only the latest model is loaded
+        if model.name in model_meta:
+            if model.version > model_version[model.name]:
+                model_meta[model.name] = model.properties
+                model_version[model.name] = model.version
+        else:
+            model_meta[model.name] = model.properties
+            model_version[model.name] = model.version
 model_name = st.selectbox('Model', model_meta.keys())
 
 sections = {'explain':False, 'backtest':False}
@@ -136,6 +144,10 @@ start_date = dp1.date_input(
 end_date = dp2.date_input(
     "Report End Date", start_date)
 
+# Prediction
+# -> selected stocks
+# -> stock statistics
+
 if st.button('Pick Stocks'):
 
     status = st.empty()
@@ -176,7 +188,6 @@ if st.button('Pick Stocks'):
                                         ascending=False)\
                                 .reset_index(drop=True).head(20)
 
-    status.write(f'The top 10 stocks are:')
     
     candidates = pd.DataFrame()
 
@@ -192,8 +203,21 @@ if st.button('Pick Stocks'):
         candidates = pd.concat([candidates, candidate])
         candidates.dropna(subset=['ISIN'], inplace=True)
         candidates.drop_duplicates(subset=['Name'], keep='first', inplace=True, ignore_index=True)
+    status.write(f'The top 10 stocks are:')
     st.table(candidates.loc[:9, ['ISIN', 'Name', 'Price', 'DCF', 'Report Date', 'Perf. Score']])
-    
+
+    year = str(start_date).split('-')[0]
+    top_10_stocks = candidates['Ticker'].to_list()
+    top_10_stocks = [item for item in top_10_stocks if not(pd.isnull(item)) == True]
+    returns = fmp.getReturns(top_10_stocks, f"{str(int(year)+1)}-04-01", f"{str(int(year)+2)}-03-31")
+
+    st.subheader(f'Portfolio Performance since {str(int(year)+1)}-04-01')
+    st.pyplot(qs.plots.returns(returns, benchmark="SPY", show=False))
+    st.pyplot(qs.plots.log_returns(returns, benchmark="SPY", show=False))
+    st.pyplot(qs.plots.monthly_returns(returns, show=False))
+
+
+    # Statistics    
     industry_count = candidates.loc[:9, ['Ticker', 'Industry']].groupby('Industry').count()
     industry_count['Industry'] = industry_count.index
     country_count = candidates.loc[:9, ['Ticker', 'Country']].groupby('Country').count()
@@ -210,9 +234,3 @@ if st.button('Pick Stocks'):
     fig = go.Figure(data=[go.Pie(labels=labels, values=values, hole=.3, title='Country')])
     fig.update_layout(showlegend=False)
     st.plotly_chart(fig)
-
- 
-
-# Prediction
-# -> selected stocks
-# -> stock statistics
