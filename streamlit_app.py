@@ -1,3 +1,4 @@
+import matplotlib
 import streamlit as st
 
 from azureml.core import Workspace
@@ -186,7 +187,8 @@ if st.button('Pick Stocks'):
     
     Final_Predictions = Final_Predictions.sort_values(by='Perf. Score', 
                                         ascending=False)\
-                                .reset_index(drop=True).head(20)
+                                .head(20)
+                                #.reset_index(drop=True).head(20)
 
     
     candidates = pd.DataFrame()
@@ -218,19 +220,55 @@ if st.button('Pick Stocks'):
 
 
     # Statistics    
-    industry_count = candidates.loc[:9, ['Ticker', 'Industry']].groupby('Industry').count()
-    industry_count['Industry'] = industry_count.index
+    sector_count = candidates.loc[:9, ['Ticker', 'Sector']].groupby('Sector').count()
+    sector_count['Sector'] = sector_count.index
     country_count = candidates.loc[:9, ['Ticker', 'Country']].groupby('Country').count()
     country_count['Country'] = country_count.index
 
-    labels = industry_count['Industry'].to_list()
-    values = industry_count['Ticker'].to_list()
-    fig = go.Figure(data=[go.Pie(labels=labels, values=values, hole=.5, title='Industry')])
-    fig.update_layout(showlegend=False)
+    # labels = sector_count['Sector'].to_list()
+    # values = sector_count['Ticker'].to_list()
+    # fig = go.Figure(data=[go.Pie(labels=labels, values=values, hole=.5, title='Sector')])
+    # fig.update_layout(showlegend=False)
+    # st.plotly_chart(fig)
+
+    # labels = country_count['Country'].to_list()
+    # values = country_count['Ticker'].to_list()
+    # fig = go.Figure(data=[go.Pie(labels=labels, values=values, hole=.3, title='Country')])
+    # fig.update_layout(showlegend=False)
+    # st.plotly_chart(fig)
+
+    print(sector_count['Sector'].to_list())
+    print(country_count['Country'].to_list())
+    
+    fig =go.Figure(go.Sunburst(
+    labels=sector_count['Sector'].to_list(),
+    parents=country_count['Country'].to_list(),
+    values=[1,1,1,1,1,1,1,1,1,1],
+    ))
+    fig.update_layout(margin = dict(t=0, l=0, r=0, b=0))
     st.plotly_chart(fig)
 
-    labels = country_count['Country'].to_list()
-    values = country_count['Ticker'].to_list()
-    fig = go.Figure(data=[go.Pie(labels=labels, values=values, hole=.3, title='Country')])
-    fig.update_layout(showlegend=False)
-    st.plotly_chart(fig)
+
+    import shap
+    import matplotlib.pyplot as plt
+
+    print(model_meta[model_name])
+    if model_meta[model_name]['model'] == 'KNeighborsRegressor':
+        explainer = shap.KernelExplainer(pipeline.named_steps['KNeighborsRegressor'])
+        observations = pipeline.named_steps['Power Transformer'].transform(X)
+    else:
+        explainer = shap.Explainer(pipeline)
+        observations = X
+    shap_values = explainer.shap_values(observations)
+
+    shap.summary_plot(shap_values, X, show=False)
+    fig = plt.gcf()
+    st.pyplot(fig)
+
+    data_for_prediction = X.iloc[0]
+    data_for_prediction_array = data_for_prediction.values.reshape(1, -1)
+
+    shap_values = explainer.shap_values(data_for_prediction)
+    shap.force_plot(explainer.expected_value, shap_values, data_for_prediction, matplotlib=True, show=False)
+    fig = plt.gcf()
+    st.pyplot(fig)
