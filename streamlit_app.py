@@ -216,10 +216,9 @@ if st.button('Pick Stocks'):
         Final_Predictions.loc[Final_Predictions.index[row],'Sector'] = profile['sector']
         Final_Predictions.loc[Final_Predictions.index[row],'Country'] = profile['country']
         Final_Predictions.loc[Final_Predictions.index[row],'Price'] = profile['price']
-        Final_Predictions.loc[Final_Predictions.index[row],'DCF'] = profile['dcf']
+        Final_Predictions.loc[Final_Predictions.index[row],'Price Chg'] = profile['changes']
+        Final_Predictions.loc[Final_Predictions.index[row],'Currency'] = profile['currency']
         candidates = Final_Predictions.copy()
-
-    print(Final_Predictions)
         
     #     candidate = pd.DataFrame({'Ticker': ticker, 'ISIN':profile['isin'],
     #         'Name': profile['companyName'], 'Industry':profile['industry'],
@@ -232,7 +231,7 @@ if st.button('Pick Stocks'):
     status.write('')
     
     predcol1, predcol2 = st.columns([1,1])
-    predcol1.write(f'The top 10 stocks are:')
+    predcol1.subheader(f'The top 10 stocks are:')
     predcol1.table(candidates.loc[:9, ['ISIN', 'Name']])
 
     year = str(start_date).split('-')[0]
@@ -240,7 +239,7 @@ if st.button('Pick Stocks'):
     top_10_stocks = [item for item in top_10_stocks if not(pd.isnull(item)) == True]
     returns = fmp.getReturns(top_10_stocks, f"{str(int(year)+1)}-04-01", f"{str(int(year)+2)}-03-31")
 
-    predcol2.write(f'Portfolio Performance since {str(int(year)+1)}-04-01')
+    predcol2.subheader(f'Portfolio Performance since {str(int(year)+1)}-04-01')
     predcol2.pyplot(qs.plots.returns(returns, benchmark="SPY", show=False))
     #predcol2.pyplot(qs.plots.log_returns(returns, benchmark="SPY", show=False))
     predcol2.pyplot(qs.plots.monthly_returns(returns, show=False))
@@ -254,22 +253,47 @@ if st.button('Pick Stocks'):
         observations = X
 
 #### LINE BY LINE
+    cmeta1,cmeta2,cmeta3 = {},{},{}
+    st.markdown('---')
     for candidate in range(10):
-        with st.expander(f'{candidate}: {candidates.iloc[candidate]["Name"]}'):
-            st.write(f'{candidates.iloc[candidate]["Name"]}')
-            st.write(f'{candidates.iloc[candidate]["ISIN"]}')
-            
-            if model_meta[model_name]['model'] != 'KNeighborsRegressor':
-                data_for_prediction = candidates.iloc[candidate,3:-7]
-                shap_values = explainer.shap_values(data_for_prediction)
-                plt.clf()
-                shap.force_plot(explainer.expected_value, shap_values, data_for_prediction, text_rotation=45, matplotlib=True, show=False)
-                fig = plt.gcf()
-                st.pyplot(fig)
+        st.subheader(f'{candidate} - {candidates.iloc[candidate]["Name"]} ({candidates.iloc[candidate]["Ticker"]})')
+        cmeta1[candidate],cmeta2[candidate],cmeta3[candidate] = st.columns([2,2,2])
+        cmeta1[candidate].caption('Core Information')
+        cmeta1[candidate].markdown(f'**ISIN:** {candidates.iloc[candidate]["ISIN"]}')
+        cmeta1[candidate].markdown(f'**Country:** {candidates.iloc[candidate]["Country"]}')
+        cmeta1[candidate].markdown(f'**Sector:** {candidates.iloc[candidate]["Sector"]}')
+        cmeta1[candidate].markdown(f'**Industry:** {candidates.iloc[candidate]["Industry"]}')
+
+        cmeta2[candidate].caption('Valuation:')
+        cmeta2[candidate].markdown(f'**Price:** {candidates.iloc[candidate]["Price"]} {candidates.iloc[candidate]["Currency"]}')
+        ratings = fmp.getFMPData(f'https://financialmodelingprep.com/api/v3/historical-rating/{candidates.iloc[candidate]["Ticker"]}')
+        cmeta2[candidate].markdown(f'**Rating:** {ratings[0]["rating"]} ({ratings[0]["date"]})')
+        cmeta2[candidate].markdown(f'**Rating:** {ratings[0]["ratingRecommendation"]}')
+        cmeta2[candidate].markdown(f'**Rating DCF:** {ratings[0]["ratingDetailsDCFRecommendation"]}')
+        cmeta2[candidate].markdown(f'**Rating ROE:** {ratings[0]["ratingDetailsROERecommendation"]}')
+        cmeta2[candidate].markdown(f'**Rating ROA:** {ratings[0]["ratingDetailsROARecommendation"]}')
+        cmeta2[candidate].markdown(f'**Rating DE:** {ratings[0]["ratingDetailsDERecommendation"]}')
+        cmeta2[candidate].markdown(f'**Rating PE:** {ratings[0]["ratingDetailsPERecommendation"]}')
+        cmeta2[candidate].markdown(f'**Rating PB:** {ratings[0]["ratingDetailsPBRecommendation"]}')
+
+        cmeta3[candidate].caption('Analysts:')
+        grades = fmp.getFMPData(f'https://financialmodelingprep.com/api/v3/grade/{candidates.iloc[candidate]["Ticker"]}?limit=3')
+        for i in range(len(grades)):
+            cmeta3[candidate].markdown(f'**{grades[i]["gradingCompany"]} ({grades[i]["date"]})**')
+            cmeta3[candidate].markdown(f'{grades[i]["previousGrade"]} -> {grades[i]["newGrade"]}')
+        
+        
+        if model_meta[model_name]['model'] != 'KNeighborsRegressor':
+            data_for_prediction = candidates.iloc[candidate,3:-8]
+            shap_values = explainer.shap_values(data_for_prediction)
+            plt.clf()
+            shap.force_plot(explainer.expected_value, shap_values, data_for_prediction, text_rotation=45, matplotlib=True, show=False)
+            fig = plt.gcf()
+            st.pyplot(fig)
 
 
 #### SUMMARY PLOT
-
+    st.markdown('---')
     if model_meta[model_name]['model'] != 'KNeighborsRegressor':
         plt.clf()
         shap_values = explainer.shap_values(observations)
