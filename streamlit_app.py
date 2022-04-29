@@ -66,9 +66,9 @@ def getModelData(_ws):
     return model_meta, model_version
 
 @st.experimental_memo
-def loadModel(_ws, model_name):
+def loadModel(_ws, model_name, model):
     Model(_ws, model_name).download(target_dir='.', exist_ok=True)
-    pipeline = pickle.load(open("model.pkl", "rb" ))
+    pipeline = pickle.load(open(f"{model}.pkl", "rb" ))
     return pipeline
 
 @st.experimental_memo
@@ -76,6 +76,22 @@ def getPredictors(_ws, dsname):
     X = Dataset.get_by_name(_ws, f'{dsname}-predictors_clipped').to_pandas_dataframe()
     tickers = Dataset.get_by_name(_ws, f'{dsname}-tickers_dates').to_pandas_dataframe()
     return X, tickers
+
+@st.experimental_memo
+def getSHAPSummary(_ws, run_id, model):
+    for file in _ws.get_run(run_id).get_file_names():
+       # if file starts with Models/{model}/SHAP Summary then download it
+        if file.startswith(f'Models/{model}/SHAP Summary'):
+            _ws.get_run(run_id).download_file(file, 'shap_summary.png')
+    return 'shap_summary.png'
+
+def getModelComparison(_ws, run_id):
+    for file in _ws.get_run(run_id).get_file_names():
+       # if file starts with Models/{model}/SHAP Summary then download it
+        if file.startswith(f'Models/Model Comparison'):
+            _ws.get_run(run_id).download_file(file, 'model_comparison.png')
+    best_model = _ws.get_run(run_id).properties['best_model']
+    return 'model_comparison.png', best_model
 
 aml_auth = ServicePrincipalAuthentication(tenant_id=st.secrets['AML_TENANT_ID'],
                                                   service_principal_id=st.secrets['AML_PRINCIPAL_ID'],
@@ -100,7 +116,7 @@ sections = {'explain':False, 'backtest':False}
 # List registered models
 h1,h2 = st.columns([3,3])
 h1.subheader('Model Metrics')
-h2.subheader('Stocks Selected')
+h2.subheader('Model Explanation')
 c1,c2,c3,c4 = st.columns([1,1,1,3])
 c1.metric('Records trained', model_meta[model_name]['records_trained'])
 c2.metric('Features', model_meta[model_name]['no_features'])
@@ -109,13 +125,23 @@ c1.metric('Years', model_meta[model_name]['years_trained'])
 c2.metric('CAGR', str(round(float(model_meta[model_name]['cagr'])*100,1)) + "%")
 c3.metric('Sharpe Ratio', round(float(model_meta[model_name]['sharpe']),2))
 
+if model_meta[model_name]['model'] != 'KNeighborsRegressor':
+    c4.image(getSHAPSummary(ws, model_meta[model_name]['run_id'], model_meta[model_name]['model']))
+else:
+    c4.caption('KNeighborsRegressor cannot be explained')
+st.subheader('Stocks Selected')
 stocks_benchmark = pd.DataFrame()
 stock_selected = json.loads(model_meta[model_name]['stock_selection'])
 for yr in stock_selected:
     stocks_yr = pd.DataFrame(stock_selected[yr])
     stocks_yr.columns = [yr]
     stocks_benchmark = stocks_benchmark.join(stocks_yr, how="outer")
-c4.table(stocks_benchmark)
+st.table(stocks_benchmark)
+
+st.subheader('Model Comparison')
+model_comparison, best_model = getModelComparison(ws, model_meta[model_name]['run_id'])
+st.caption(f'The best model is {best_model}')
+st.image(model_comparison)
 
 # todo: Model Explainer
 
@@ -169,7 +195,7 @@ if st.button('Pick Stocks'):
     status = st.empty()
     status.write("Loading Model...")
 
-    pipeline = loadModel(ws, model_name)
+    pipeline = loadModel(ws, model_name, model_meta[model_name]['model'])
 
     status.write("Loading Data...")
 
