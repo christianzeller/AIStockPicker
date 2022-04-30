@@ -106,6 +106,11 @@ fmp = FMP(st.secrets['FMP_API_KEY'])
 
 st.title('AI Stock Picker')
 
+headercol1,headercol2 = st.columns([4,1])
+if headercol2.button("Clear Cache"):
+    # Clear values from *all* memoized functions:
+    st.experimental_memo.clear()
+
 model_meta, model_version = getModelData(ws)
 
 model_name = st.selectbox('Model', model_meta.keys())
@@ -124,6 +129,8 @@ c3.metric('Shares', model_meta[model_name]['unique_stocks'])
 c1.metric('Years', model_meta[model_name]['years_trained'])
 c2.metric('CAGR', str(round(float(model_meta[model_name]['cagr'])*100,1)) + "%")
 c3.metric('Sharpe Ratio', round(float(model_meta[model_name]['sharpe']),2))
+
+print(model_meta[model_name]['dataset'])
 
 if model_meta[model_name]['model'] != 'KNeighborsRegressor':
     c4.image(getSHAPSummary(ws, model_meta[model_name]['run_id'], model_meta[model_name]['model']))
@@ -244,6 +251,7 @@ if st.button('Pick Stocks'):
         Final_Predictions.loc[Final_Predictions.index[row],'Price'] = profile['price']
         Final_Predictions.loc[Final_Predictions.index[row],'Price Chg'] = profile['changes']
         Final_Predictions.loc[Final_Predictions.index[row],'Currency'] = profile['currency']
+        Final_Predictions.loc[Final_Predictions.index[row],'Description'] = profile['description']        
         candidates = Final_Predictions.copy()
         
     #     candidate = pd.DataFrame({'Ticker': ticker, 'ISIN':profile['isin'],
@@ -279,43 +287,48 @@ if st.button('Pick Stocks'):
         observations = X
 
 #### LINE BY LINE
-    cmeta1,cmeta2,cmeta3 = {},{},{}
-    st.markdown('---')
+    cmeta1,cmeta2 = {},{}
     for candidate in range(10):
+        st.markdown('---')
         st.subheader(f'{candidate} - {candidates.iloc[candidate]["Name"]} ({candidates.iloc[candidate]["Ticker"]})')
-        cmeta1[candidate],cmeta2[candidate],cmeta3[candidate] = st.columns([2,2,2])
+        cmeta1[candidate],cmeta2[candidate] = st.columns([2,4])
+
         cmeta1[candidate].caption('Core Information')
         cmeta1[candidate].markdown(f'**ISIN:** {candidates.iloc[candidate]["ISIN"]}')
         cmeta1[candidate].markdown(f'**Country:** {candidates.iloc[candidate]["Country"]}')
         cmeta1[candidate].markdown(f'**Sector:** {candidates.iloc[candidate]["Sector"]}')
         cmeta1[candidate].markdown(f'**Industry:** {candidates.iloc[candidate]["Industry"]}')
-
-        cmeta2[candidate].caption('Valuation:')
-        cmeta2[candidate].markdown(f'**Price:** {candidates.iloc[candidate]["Price"]} {candidates.iloc[candidate]["Currency"]}')
-        ratings = fmp.getFMPData(f'https://financialmodelingprep.com/api/v3/historical-rating/{candidates.iloc[candidate]["Ticker"]}')
-        cmeta2[candidate].markdown(f'**Rating:** {ratings[0]["rating"]} ({ratings[0]["date"]})')
-        cmeta2[candidate].markdown(f'**Rating:** {ratings[0]["ratingRecommendation"]}')
-        cmeta2[candidate].markdown(f'**Rating DCF:** {ratings[0]["ratingDetailsDCFRecommendation"]}')
-        cmeta2[candidate].markdown(f'**Rating ROE:** {ratings[0]["ratingDetailsROERecommendation"]}')
-        cmeta2[candidate].markdown(f'**Rating ROA:** {ratings[0]["ratingDetailsROARecommendation"]}')
-        cmeta2[candidate].markdown(f'**Rating DE:** {ratings[0]["ratingDetailsDERecommendation"]}')
-        cmeta2[candidate].markdown(f'**Rating PE:** {ratings[0]["ratingDetailsPERecommendation"]}')
-        cmeta2[candidate].markdown(f'**Rating PB:** {ratings[0]["ratingDetailsPBRecommendation"]}')
-
-        cmeta3[candidate].caption('Analysts:')
-        grades = fmp.getFMPData(f'https://financialmodelingprep.com/api/v3/grade/{candidates.iloc[candidate]["Ticker"]}?limit=3')
-        for i in range(len(grades)):
-            cmeta3[candidate].markdown(f'**{grades[i]["gradingCompany"]} ({grades[i]["date"]})**')
-            cmeta3[candidate].markdown(f'{grades[i]["previousGrade"]} -> {grades[i]["newGrade"]}')
+        cmeta1[candidate].caption('Fundamentals:')
+        cmeta1[candidate].markdown(f'**Price:** {candidates.iloc[candidate]["Price"]} {candidates.iloc[candidate]["Currency"]}')
+        # add lines for EV/EBIT, ROCE, P/E
+        cmeta1[candidate].markdown(f'**EV/EBIT:** {round(candidates.iloc[candidate]["EV/EBIT"],1)}')
+        cmeta1[candidate].markdown(f'**P/E:** {round(candidates.iloc[candidate]["P/E"],1)}')
+        cmeta1[candidate].markdown(f'**ROCE:** {round(candidates.iloc[candidate]["ROCE"]*100,1)}%')
+        cmeta1[candidate].markdown(f'**Gross Profit Margin:** {round(candidates.iloc[candidate]["Gross Profit Margin"]*100,1)}%')
+        # add lines for Gross Profit Margin, P/E Valuation, EV/EBIT Valuation, Debt Ratio
+        cmeta1[candidate].markdown(f'**P/E Valuation:** {round(candidates.iloc[candidate]["P/E Valuation"]*100,1)}%')
+        cmeta1[candidate].markdown(f'**EV/EBIT Valuation:** {round(candidates.iloc[candidate]["EV/EBIT Valuation"]*100,1)}%')
+        cmeta1[candidate].markdown(f'**Debt Ratio:** {round(candidates.iloc[candidate]["Debt Ratio"]*100,1)}%')
+        
+        cmeta2[candidate].caption('Description:')
+        # shorten candidates.iloc[candidate]["Description"] maximum 700 characters and add '...' if it was shortened
+        if len(candidates.iloc[candidate]["Description"]) > 700:
+            cmeta2[candidate].markdown(f'{candidates.iloc[candidate]["Description"][:700]}...')
+        else:
+            cmeta2[candidate].markdown(f'{candidates.iloc[candidate]["Description"]}')
+        cmeta2[candidate].caption('Further Information:')
+        cmeta2[candidate].markdown(f'[Summary](https://finance.yahoo.com/quote/{candidates.iloc[candidate]["Ticker"]}/)')
+        cmeta2[candidate].markdown(f'[Analyst Ratings](https://finance.yahoo.com/quote/{candidates.iloc[candidate]["Ticker"]}/analysis)')
+        cmeta2[candidate].caption('Model Insights:')
         
         
         if model_meta[model_name]['model'] != 'KNeighborsRegressor':
-            data_for_prediction = candidates.iloc[candidate,3:-8]
+            data_for_prediction = candidates.iloc[candidate,3:-9]
             shap_values = explainer.shap_values(data_for_prediction)
             plt.clf()
             shap.force_plot(explainer.expected_value, shap_values, data_for_prediction, text_rotation=45, matplotlib=True, show=False)
             fig = plt.gcf()
-            st.pyplot(fig)
+            cmeta2[candidate].pyplot(fig)
 
 
 #### SUMMARY PLOT
