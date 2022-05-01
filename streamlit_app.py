@@ -91,7 +91,7 @@ def getModelComparison(_ws, run_id):
         if file.startswith(f'Models/Model Comparison'):
             _ws.get_run(run_id).download_file(file, f'model_comparison_{run_id}.png')
     best_model = _ws.get_run(run_id).properties['best_model']
-    return f'model_comparison.png_{run_id}.png', best_model
+    return f'model_comparison_{run_id}.png', best_model
 
 aml_auth = ServicePrincipalAuthentication(tenant_id=st.secrets['AML_TENANT_ID'],
                                                   service_principal_id=st.secrets['AML_PRINCIPAL_ID'],
