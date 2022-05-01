@@ -71,7 +71,6 @@ def loadModel(_ws, model_name, model):
     pipeline = pickle.load(open(f"{model}.pkl", "rb" ))
     return pipeline
 
-@st.experimental_memo
 def getPredictors(_ws, dsname):
     X = Dataset.get_by_name(_ws, f'{dsname}-predictors_clipped').to_pandas_dataframe()
     tickers = Dataset.get_by_name(_ws, f'{dsname}-tickers_dates').to_pandas_dataframe()
@@ -82,16 +81,17 @@ def getSHAPSummary(_ws, run_id, model):
     for file in _ws.get_run(run_id).get_file_names():
        # if file starts with Models/{model}/SHAP Summary then download it
         if file.startswith(f'Models/{model}/SHAP Summary'):
-            _ws.get_run(run_id).download_file(file, 'shap_summary.png')
-    return 'shap_summary.png'
+            _ws.get_run(run_id).download_file(file, f'shap_summary_{model}_{run_id}.png')
+    return f'shap_summary_{model}_{run_id}.png'
 
+@st.experimental_memo
 def getModelComparison(_ws, run_id):
     for file in _ws.get_run(run_id).get_file_names():
        # if file starts with Models/{model}/SHAP Summary then download it
         if file.startswith(f'Models/Model Comparison'):
-            _ws.get_run(run_id).download_file(file, 'model_comparison.png')
+            _ws.get_run(run_id).download_file(file, f'model_comparison_{run_id}.png')
     best_model = _ws.get_run(run_id).properties['best_model']
-    return 'model_comparison.png', best_model
+    return f'model_comparison.png_{run_id}', best_model
 
 aml_auth = ServicePrincipalAuthentication(tenant_id=st.secrets['AML_TENANT_ID'],
                                                   service_principal_id=st.secrets['AML_PRINCIPAL_ID'],
@@ -332,7 +332,19 @@ if st.button('Pick Stocks'):
 
 
 #### SUMMARY PLOT
+
     st.markdown('---')
+    st.caption('Summary Plot for the top 10 stocks')
+    if model_meta[model_name]['model'] != 'KNeighborsRegressor':
+        plt.clf()
+        data_for_prediction = candidates.iloc[:9,3:-9]
+        shap_values = explainer.shap_values(data_for_prediction)
+        shap.summary_plot(shap_values, data_for_prediction, show=False)
+        fig = plt.gcf()
+        st.pyplot(fig)
+
+    st.markdown('---')
+    st.caption('Summary Plot on available data')
     if model_meta[model_name]['model'] != 'KNeighborsRegressor':
         plt.clf()
         shap_values = explainer.shap_values(observations)
