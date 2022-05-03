@@ -197,26 +197,37 @@ end_date = dp2.date_input(
 # -> selected stocks
 # -> stock statistics
 
+status = st.empty()
+
+status.write("Loading Data...")
+
+dsname = model_meta[model_name]['dataset']
+
+X, tickers = getPredictors(ws, dsname)
+
+bool_list = X['date'].between(
+    pd.to_datetime(start_date, format='%Y-%m-%d', errors='coerce'),
+    pd.to_datetime(end_date, format='%Y-%m-%d', errors='coerce'))    
+X = X[bool_list]
+tickers = tickers[bool_list] 
+
+#X = X.drop(['date', 'date_added'], axis=1)
+X = X.drop(['date'], axis=1)
+
+with st.expander('Dataset Statistics'):
+    selected_features = st.multiselect('Features', list(X.columns))
+    try:
+        st.write(X[selected_features].describe())
+    except:
+        st.caption('No Features Selected')
+
+status.write('')
+
 if st.button('Pick Stocks'):
 
-    status = st.empty()
     status.write("Loading Model...")
 
     pipeline = loadModel(ws, model_name, model_meta[model_name]['model'])
-
-    status.write("Loading Data...")
-
-    dsname = model_meta[model_name]['dataset']
-
-    X, tickers = getPredictors(ws, dsname)
-    
-    bool_list = X['date'].between(
-        pd.to_datetime(start_date, format='%Y-%m-%d', errors='coerce'),
-        pd.to_datetime(end_date, format='%Y-%m-%d', errors='coerce'))    
-    X = X[bool_list]
-    tickers = tickers[bool_list] 
-
-    X = X.drop(['date', 'date_added'], axis=1)
 
     status.write(f'Picking the most valuable stocks from {tickers.shape[0]} companies...')
 
@@ -337,7 +348,7 @@ if st.button('Pick Stocks'):
     st.caption('Summary Plot for the top 10 stocks')
     if model_meta[model_name]['model'] != 'KNeighborsRegressor':
         plt.clf()
-        data_for_prediction = candidates.iloc[:9,3:-9]
+        data_for_prediction = candidates.iloc[:10,3:-9]
         shap_values = explainer.shap_values(data_for_prediction)
         shap.summary_plot(shap_values, data_for_prediction, show=False)
         fig = plt.gcf()
