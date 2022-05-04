@@ -316,6 +316,7 @@ if st.button('Pick Stocks'):
         cmeta1[candidate].markdown(f'**P/E:** {round(candidates.iloc[candidate]["P/E"],1)}')
         cmeta1[candidate].markdown(f'**ROCE:** {round(candidates.iloc[candidate]["ROCE"]*100,1)}%')
         cmeta1[candidate].markdown(f'**Gross Profit Margin:** {round(candidates.iloc[candidate]["Gross Profit Margin"]*100,1)}%')
+        cmeta1[candidate].markdown(f'**RoE:** {round(candidates.iloc[candidate]["RoE"]*100,1)}%')
         # add lines for Gross Profit Margin, P/E Valuation, EV/EBIT Valuation, Debt Ratio
         cmeta1[candidate].markdown(f'**P/E Valuation:** {round(candidates.iloc[candidate]["P/E Valuation"]*100,1)}%')
         cmeta1[candidate].markdown(f'**EV/EBIT Valuation:** {round(candidates.iloc[candidate]["EV/EBIT Valuation"]*100,1)}%')
