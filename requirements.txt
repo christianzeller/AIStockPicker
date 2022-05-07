@@ -8,3 +8,4 @@ azureml-sdk
 azureml-dataprep
 azureml-core
 azureml-dataprep[pandas]
+azure-cli

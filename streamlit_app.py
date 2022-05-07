@@ -246,9 +246,14 @@ if st.button('Pick Stocks'):
     
     Final_Predictions = Final_Predictions.sort_values(by='Perf. Score', 
                                         ascending=False)\
-                                .reset_index(drop=True).head(20)
+                                .reset_index(drop=True)
     
+    Final_Predictions_Full = Final_Predictions.copy()
+    Final_Predictions = Final_Predictions.head(10)
+
     candidates = pd.DataFrame()
+
+    st.write(Final_Predictions[['Ticker','Perf. Score']])
 
     for row in range(len(Final_Predictions)):
         ticker = Final_Predictions.iloc[row]['Ticker']
@@ -289,6 +294,11 @@ if st.button('Pick Stocks'):
     #predcol2.pyplot(qs.plots.log_returns(returns, benchmark="SPY", show=False))
     predcol2.pyplot(qs.plots.monthly_returns(returns, show=False))
 
+    # create plot a histogram of Final_Predictions by 'Perf. Score'
+    ax = Final_Predictions_Full['Perf. Score'].round(4).plot.hist(bins=50, figsize=(20, 4))
+    perf_hist = ax.figure
+    st.pyplot(perf_hist)
+    
 
     import shap
     import matplotlib.pyplot as plt
@@ -309,19 +319,45 @@ if st.button('Pick Stocks'):
         cmeta1[candidate].markdown(f'**Country:** {candidates.iloc[candidate]["Country"]}')
         cmeta1[candidate].markdown(f'**Sector:** {candidates.iloc[candidate]["Sector"]}')
         cmeta1[candidate].markdown(f'**Industry:** {candidates.iloc[candidate]["Industry"]}')
-        cmeta1[candidate].caption('Fundamentals:')
         cmeta1[candidate].markdown(f'**Price:** {candidates.iloc[candidate]["Price"]} {candidates.iloc[candidate]["Currency"]}')
-        # add lines for EV/EBIT, ROCE, P/E
+        
+        cmeta1[candidate].caption('Valuation:')
         cmeta1[candidate].markdown(f'**EV/EBIT:** {round(candidates.iloc[candidate]["EV/EBIT"],1)}')
         cmeta1[candidate].markdown(f'**P/E:** {round(candidates.iloc[candidate]["P/E"],1)}')
         cmeta1[candidate].markdown(f'**ROCE:** {round(candidates.iloc[candidate]["ROCE"]*100,1)}%')
-        cmeta1[candidate].markdown(f'**Gross Profit Margin:** {round(candidates.iloc[candidate]["Gross Profit Margin"]*100,1)}%')
-        cmeta1[candidate].markdown(f'**RoE:** {round(candidates.iloc[candidate]["RoE"]*100,1)}%')
-        # add lines for Gross Profit Margin, P/E Valuation, EV/EBIT Valuation, Debt Ratio
         cmeta1[candidate].markdown(f'**P/E Valuation:** {round(candidates.iloc[candidate]["P/E Valuation"]*100,1)}%')
         cmeta1[candidate].markdown(f'**EV/EBIT Valuation:** {round(candidates.iloc[candidate]["EV/EBIT Valuation"]*100,1)}%')
-        cmeta1[candidate].markdown(f'**Debt Ratio:** {round(candidates.iloc[candidate]["Debt Ratio"]*100,1)}%')
+        cmeta1[candidate].markdown(f'**Greenblatt Rank:** {round(candidates.iloc[candidate]["Greenblatt Rank"],0)}')
+
+        cmeta1[candidate].caption('Moat:')
+        ratios = [
+            {'label':'RoE', 'name':'RoE'},
+            {'label':'ROIC', 'name':'ROIC'},
+            {'label':'Equity Growth (5yr)', 'name':'5yrShareholdersEquityGrowthPerShare'},
+            #{'label':'EPS Growth (5yr)', 'name':''},
+            {'label':'Sales Growth (5yr)', 'name':'5yrRevenueGrowthPerShare'},
+            {'label':'Cashflow Growth (5yr)', 'name':'5yrOperatingCFGrowthPerShare'}
+            ]
+        for ratio in ratios:
+            cmeta1[candidate].markdown(f'**{ratio["label"]}:** {round(candidates.iloc[candidate][ratio["name"]]*100,1)}%')
         
+        cmeta1[candidate].caption('Margin of Safety:')
+        cmeta1[candidate].caption('Quality:')
+        ratios = [
+            {'label':'Gross Profit Margin', 'name':'Gross Profit Margin'},
+            {'label':'Debt Ratio', 'name':'Debt Ratio'}
+            ]
+        measures = [
+            {'label':'Growth Selected', 'name':'SelectedDividendGrowth'},
+            {'label':'Yield Selected', 'name':'SelectedDividendYield'}
+            ]
+        for ratio in ratios:
+            cmeta1[candidate].markdown(f'**{ratio["label"]}:** {round(candidates.iloc[candidate][ratio["name"]],1)}')
+        for measure in measures:
+            cmeta1[candidate].markdown(f'**{measure["label"]}:** {round(candidates.iloc[candidate][measure["name"]],1)}')
+
+        # Dividend Measures
+
         cmeta2[candidate].caption('Description:')
         # shorten candidates.iloc[candidate]["Description"] maximum 700 characters and add '...' if it was shortened
         if len(candidates.iloc[candidate]["Description"]) > 700:
